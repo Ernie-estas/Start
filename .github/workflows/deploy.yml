@@ -35,6 +35,8 @@ jobs:
       - name: Build
         run: npm run build
         working-directory: dashboard
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
       - uses: actions/configure-pages@v4
 

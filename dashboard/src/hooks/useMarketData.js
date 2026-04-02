@@ -4,7 +4,10 @@
  */
 import { useState, useEffect, useCallback } from 'react'
 
-const BASE = '/api'
+// In dev: Vite proxies /api → localhost:8000
+// In production: set VITE_API_URL to your Render backend URL
+// e.g. https://alpha-terminal-api.onrender.com
+const BASE = (import.meta.env.VITE_API_URL || '') + '/api'
 
 async function apiFetch(path) {
   const res = await fetch(BASE + path)
