@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [claude/list-mcp-servers-jeWWA, main]
+    branches: [main]
 
 permissions:
   contents: read
