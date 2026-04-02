@@ -4,6 +4,7 @@ import ETFExposure from './components/ETFExposure'
 import StockResearch from './components/StockResearch'
 import MacroIndicators from './components/MacroIndicators'
 import MonteCarlo from './components/MonteCarlo'
+import TechnicalChart from './components/TechnicalChart'
 import Ticker from './components/Ticker'
 import {
   LayoutDashboard, Briefcase, BarChart2, TrendingUp, LineChart, Activity, Zap
@@ -13,6 +14,7 @@ const TABS = [
   { id: 'portfolio', label: 'Portfolio', icon: Briefcase },
   { id: 'etf', label: 'ETF Exposure', icon: LayoutDashboard },
   { id: 'research', label: 'Stock Research', icon: BarChart2 },
+  { id: 'technical', label: 'Technical', icon: LineChart },
   { id: 'macro', label: 'Macro', icon: TrendingUp },
   { id: 'montecarlo', label: 'Monte Carlo', icon: Activity },
 ]
@@ -92,6 +94,7 @@ export default function App() {
         {activeTab === 'portfolio' && <Portfolio />}
         {activeTab === 'etf' && <ETFExposure />}
         {activeTab === 'research' && <StockResearch />}
+        {activeTab === 'technical' && <TechnicalChart />}
         {activeTab === 'macro' && <MacroIndicators />}
         {activeTab === 'montecarlo' && <MonteCarlo />}
       </main>
