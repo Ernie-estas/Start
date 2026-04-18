@@ -8,6 +8,12 @@ import { Search, TrendingUp, TrendingDown, Activity, BarChart2, Loader } from 'l
 
 const PERIODS = ['3mo', '6mo', '1y', '2y', '5y']
 
+const POPULAR = [
+  'AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMZN',
+  'GOOGL', 'META', 'AMD', 'SPY', 'QQQ',
+  'BRK-B', 'JPM', 'V', 'UNH', 'XOM',
+]
+
 function Badge({ value, label, up, format = v => v }) {
   if (value == null) return null
   return (
@@ -151,6 +157,20 @@ export default function TechnicalChart() {
             </div>
             <button type="submit" className="btn-primary">Load</button>
           </form>
+
+          <div className="flex gap-1 flex-wrap">
+            {POPULAR.map(sym => (
+              <button
+                key={sym}
+                onClick={() => { setSymbol(sym); setInput('') }}
+                className={`text-[10px] px-2 py-1 rounded transition-colors mono ${
+                  symbol === sym ? 'bg-accent-blue/20 text-accent-blue border border-accent-blue/30' : 'text-text-muted hover:text-text-primary border border-border-default'
+                }`}
+              >
+                {sym}
+              </button>
+            ))}
+          </div>
 
           <div className="flex gap-1.5">
             {PERIODS.map(p => (
