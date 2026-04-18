@@ -687,3 +687,166 @@ def get_fx_ppp_all(base: str = "USD"):
             "signal": sig,
         })
     return {"base": base, "date": spot_data.get("date", ""), "data": results}
+
+
+# ── ETF Endpoints ─────────────────────────────────────────────────────────────
+
+import numpy as np
+
+
+@app.get("/api/etf/info/{symbol}")
+def get_etf_info(symbol: str):
+    """ETF metadata from yfinance — validates quoteType == ETF."""
+    try:
+        ticker = yf.Ticker(symbol.upper())
+        info = ticker.info
+        if info.get("quoteType") not in ("ETF", "MUTUALFUND"):
+            raise HTTPException(status_code=404, detail="Not an ETF")
+        return {
+            "symbol": symbol.upper(),
+            "name": info.get("longName") or info.get("shortName"),
+            "category": info.get("category"),
+            "family": info.get("fundFamily"),
+            "aum": safe_float(info.get("totalAssets")),
+            "er": safe_float(info.get("expenseRatio")),
+            "nav": safe_float(info.get("navPrice")),
+            "price": safe_float(info.get("regularMarketPrice") or info.get("currentPrice")),
+            "div_yield": safe_float(info.get("yield") or info.get("dividendYield")),
+            "beta_3y": safe_float(info.get("beta3Year")),
+            "inception_date": info.get("fundInceptionDate"),
+            "holdings_count": safe_int(info.get("totalHoldings")),
+            "quote_type": info.get("quoteType"),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/etf/analytics")
+def get_etf_analytics(symbols: str, period: str = "2y"):
+    """Risk/return analytics for comma-separated ETF symbols (numpy only)."""
+    syms = [s.strip().upper() for s in symbols.split(",") if s.strip()][:10]
+    RISK_FREE = 0.0533
+
+    spy_returns = None
+    results = []
+
+    for sym in syms:
+        try:
+            ticker = yf.Ticker(sym)
+            hist = ticker.history(period=period, interval="1d")
+            if hist.empty or len(hist) < 20:
+                results.append({"symbol": sym, "error": "insufficient data"})
+                continue
+
+            close = np.array(hist["Close"], dtype=float)
+            daily_ret = np.diff(close) / close[:-1]
+
+            def period_return(days):
+                if len(close) > days:
+                    return round(float((close[-1] / close[-days] - 1) * 100), 2)
+                return None
+
+            ytd_ret = None
+            try:
+                today = datetime.utcnow().date()
+                ytd_start = datetime(today.year, 1, 1)
+                hist_copy = hist.copy()
+                hist_copy.index = pd.to_datetime(hist_copy.index).tz_localize(None)
+                ytd_mask = hist_copy.index >= ytd_start
+                if ytd_mask.any():
+                    ytd_idx = ytd_mask.values.argmax()
+                    ytd_ret = round(float((close[-1] / close[ytd_idx] - 1) * 100), 2)
+            except Exception:
+                pass
+
+            ann_vol = round(float(daily_ret.std() * np.sqrt(252) * 100), 2)
+            ann_ret_raw = float(daily_ret.mean() * 252)
+
+            sharpe = None
+            if daily_ret.std() > 0:
+                sharpe = round((ann_ret_raw - RISK_FREE) / (daily_ret.std() * np.sqrt(252)), 3)
+
+            neg_ret = daily_ret[daily_ret < 0]
+            sortino = None
+            if len(neg_ret) > 1 and neg_ret.std() > 0:
+                sortino = round((ann_ret_raw - RISK_FREE) / (neg_ret.std() * np.sqrt(252)), 3)
+
+            cummax = np.maximum.accumulate(close)
+            drawdowns = (close - cummax) / cummax
+            max_dd = round(float(drawdowns.min() * 100), 2)
+
+            calmar = None
+            if max_dd != 0:
+                calmar = round(ann_ret_raw / abs(max_dd / 100), 3)
+
+            var95 = round(float(np.percentile(daily_ret, 5) * 100), 3)
+            below = daily_ret[daily_ret <= np.percentile(daily_ret, 5)]
+            cvar95 = round(float(below.mean() * 100), 3) if len(below) > 0 else None
+
+            beta = None
+            if sym != "SPY":
+                if spy_returns is None:
+                    try:
+                        spy_hist = yf.Ticker("SPY").history(period=period, interval="1d")
+                        if not spy_hist.empty:
+                            spy_close = np.array(spy_hist["Close"], dtype=float)
+                            spy_returns = np.diff(spy_close) / spy_close[:-1]
+                    except Exception:
+                        spy_returns = None
+                if spy_returns is not None:
+                    min_len = min(len(daily_ret), len(spy_returns))
+                    dr = daily_ret[-min_len:]
+                    sr = spy_returns[-min_len:]
+                    cov = np.cov(dr, sr)[0][1]
+                    var_spy = float(np.var(sr))
+                    beta = round(float(cov / var_spy), 3) if var_spy > 0 else None
+            else:
+                beta = 1.0
+
+            div_yield = None
+            div_rate = None
+            pe = None
+            pb = None
+            nav = None
+            price = None
+            try:
+                fast = ticker.fast_info
+                price = safe_float(fast.last_price) if hasattr(fast, "last_price") else None
+                full_info = ticker.info
+                div_yield = safe_float(full_info.get("yield") or full_info.get("dividendYield"))
+                div_rate = safe_float(full_info.get("dividendRate"))
+                pe = safe_float(full_info.get("trailingPE"))
+                pb = safe_float(full_info.get("priceToBook"))
+                nav = safe_float(full_info.get("navPrice"))
+                if price is None:
+                    price = safe_float(full_info.get("regularMarketPrice"))
+            except Exception:
+                pass
+
+            results.append({
+                "symbol": sym,
+                "price": price,
+                "ytd": ytd_ret,
+                "1y": period_return(252),
+                "3y": period_return(252 * 3),
+                "5y": period_return(252 * 5),
+                "ann_vol": ann_vol,
+                "sharpe": sharpe,
+                "sortino": sortino,
+                "calmar": calmar,
+                "max_drawdown": max_dd,
+                "var95": var95,
+                "cvar95": cvar95,
+                "beta": beta,
+                "div_yield": div_yield,
+                "div_rate": div_rate,
+                "pe": pe,
+                "pb": pb,
+                "nav": nav,
+            })
+        except Exception as e:
+            results.append({"symbol": sym, "error": str(e)})
+
+    return results
