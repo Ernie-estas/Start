@@ -5,9 +5,10 @@ import StockResearch from './components/StockResearch'
 import MacroIndicators from './components/MacroIndicators'
 import MonteCarlo from './components/MonteCarlo'
 import TechnicalChart from './components/TechnicalChart'
+import CurrencyDashboard from './components/CurrencyDashboard'
 import Ticker from './components/Ticker'
 import {
-  LayoutDashboard, Briefcase, BarChart2, TrendingUp, LineChart, Activity, Zap
+  LayoutDashboard, Briefcase, BarChart2, TrendingUp, LineChart, Activity, Zap, DollarSign
 } from 'lucide-react'
 
 const TABS = [
@@ -17,6 +18,7 @@ const TABS = [
   { id: 'technical', label: 'Technical', icon: LineChart },
   { id: 'macro', label: 'Macro', icon: TrendingUp },
   { id: 'montecarlo', label: 'Monte Carlo', icon: Activity },
+  { id: 'fx', label: 'FX Arbitrage', icon: DollarSign },
 ]
 
 export default function App() {
@@ -97,6 +99,7 @@ export default function App() {
         {activeTab === 'technical' && <TechnicalChart />}
         {activeTab === 'macro' && <MacroIndicators />}
         {activeTab === 'montecarlo' && <MonteCarlo />}
+        {activeTab === 'fx' && <CurrencyDashboard />}
       </main>
     </div>
   )
