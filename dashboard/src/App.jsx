@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import Portfolio from './components/Portfolio'
 import ETFExposure from './components/ETFExposure'
 import StockResearch from './components/StockResearch'
@@ -9,17 +9,20 @@ import CurrencyDashboard from './components/CurrencyDashboard'
 import Ticker from './components/Ticker'
 import {
   LayoutDashboard, Briefcase, BarChart2, TrendingUp, LineChart,
-  Activity, Zap, DollarSign, ChevronRight,
+  Activity, Zap, DollarSign, ChevronRight, Globe2,
 } from 'lucide-react'
 
+const IntelligenceDashboard = lazy(() => import('./components/IntelligenceDashboard'))
+
 const TABS = [
-  { id: 'portfolio',   label: 'Portfolio',     icon: Briefcase },
-  { id: 'etf',         label: 'ETF Exposure',  icon: LayoutDashboard },
-  { id: 'research',    label: 'Research',      icon: BarChart2 },
-  { id: 'technical',   label: 'Technical',     icon: LineChart },
-  { id: 'macro',       label: 'Macro',         icon: TrendingUp },
-  { id: 'montecarlo',  label: 'Monte Carlo',   icon: Activity },
-  { id: 'fx',          label: 'FX Arbitrage',  icon: DollarSign },
+  { id: 'intelligence', label: 'Intelligence', icon: Globe2 },
+  { id: 'portfolio',    label: 'Portfolio',    icon: Briefcase },
+  { id: 'etf',          label: 'ETF Exposure', icon: LayoutDashboard },
+  { id: 'research',     label: 'Research',     icon: BarChart2 },
+  { id: 'technical',    label: 'Technical',    icon: LineChart },
+  { id: 'macro',        label: 'Macro',        icon: TrendingUp },
+  { id: 'montecarlo',   label: 'Monte Carlo',  icon: Activity },
+  { id: 'fx',           label: 'FX Arbitrage', icon: DollarSign },
 ]
 
 const MARKET_STRIP = [
@@ -45,7 +48,7 @@ function Clock() {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('portfolio')
+  const [activeTab, setActiveTab] = useState('intelligence')
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary">
@@ -111,7 +114,16 @@ export default function App() {
       </header>
 
       {/* ── Content ── */}
-      <main className="px-6 py-6 max-w-[1600px] mx-auto">
+      <main className={activeTab === 'intelligence' ? 'px-6 py-6' : 'px-6 py-6 max-w-[1600px] mx-auto'}>
+        {activeTab === 'intelligence' && (
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-96">
+              <div className="w-8 h-8 rounded-full border-2 border-accent-purple border-t-transparent animate-spin" />
+            </div>
+          }>
+            <IntelligenceDashboard />
+          </Suspense>
+        )}
         {activeTab === 'portfolio'  && <Portfolio />}
         {activeTab === 'etf'        && <ETFExposure />}
         {activeTab === 'research'   && <StockResearch />}

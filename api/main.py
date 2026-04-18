@@ -850,3 +850,240 @@ def get_etf_analytics(symbols: str, period: str = "2y"):
             results.append({"symbol": sym, "error": str(e)})
 
     return results
+
+
+# ── Intelligence Endpoints ────────────────────────────────────────────────────
+
+GDELT_BASE = "https://api.gdeltproject.org/api/v2/doc/doc"
+
+COUNTRY_COORDS = {
+    "US": (38.9, -77.0), "GB": (51.5, -0.1), "DE": (52.5, 13.4), "FR": (48.9, 2.3),
+    "JP": (35.7, 139.7), "CN": (39.9, 116.4), "RU": (55.8, 37.6), "UA": (50.4, 30.5),
+    "IL": (31.8, 35.2), "PS": (31.5, 34.5), "SD": (15.6, 32.5), "YE": (15.4, 44.2),
+    "AF": (34.5, 69.2), "IQ": (33.3, 44.4), "SY": (33.5, 36.3), "LY": (32.9, 13.2),
+    "ML": (12.7, -8.0), "NE": (13.5, 2.1), "CF": (4.4, 18.6), "CD": (-4.3, 15.3),
+    "ET": (9.0, 38.7), "SO": (2.0, 45.3), "SS": (4.9, 31.6), "MZ": (-18.9, 35.5),
+    "HT": (18.5, -72.3), "MX": (19.4, -99.1), "BR": (-15.8, -47.9), "CO": (4.7, -74.1),
+    "IN": (28.6, 77.2), "PK": (33.7, 73.1), "IR": (35.7, 51.4), "KP": (39.0, 125.8),
+    "TW": (25.0, 121.5), "MM": (19.7, 96.2), "NG": (9.1, 7.5), "KE": (-1.3, 36.8),
+    "TH": (13.8, 100.5), "ID": (-6.2, 106.8), "VN": (21.0, 105.8), "PH": (14.6, 121.0),
+    "SA": (24.7, 46.7), "TR": (39.9, 32.8), "EG": (30.1, 31.2), "ZA": (-25.7, 28.2),
+    "AU": (-35.3, 149.1), "CA": (45.4, -75.7), "AR": (-34.6, -58.4), "KR": (37.6, 127.0),
+    "TZ": (-6.8, 39.3), "UG": (0.3, 32.6), "KG": (42.9, 74.6), "GE": (41.7, 44.8),
+}
+
+STATIC_CONFLICTS = [
+    {"lat": 48.38, "lng": 31.17, "label": "Ukraine-Russia", "intensity": 92, "type": "war", "country": "UA"},
+    {"lat": 31.50, "lng": 34.47, "label": "Gaza", "intensity": 88, "type": "war", "country": "PS"},
+    {"lat": 15.55, "lng": 32.53, "label": "Sudan", "intensity": 75, "type": "civil", "country": "SD"},
+    {"lat": 15.00, "lng": 44.00, "label": "Yemen", "intensity": 68, "type": "civil", "country": "YE"},
+    {"lat": 33.93, "lng": 67.71, "label": "Afghanistan", "intensity": 60, "type": "insurgency", "country": "AF"},
+    {"lat": 24.00, "lng": 121.00, "label": "Taiwan Strait", "intensity": 62, "type": "tension", "country": "TW"},
+    {"lat": 37.00, "lng": 128.00, "label": "Korean Peninsula", "intensity": 42, "type": "tension", "country": "KP"},
+    {"lat": 32.00, "lng": 53.00, "label": "Iran", "intensity": 55, "type": "tension", "country": "IR"},
+    {"lat": 12.00, "lng": 15.00, "label": "Sahel Region", "intensity": 58, "type": "insurgency", "country": "ML"},
+    {"lat": -3.00, "lng": 23.00, "label": "DR Congo", "intensity": 52, "type": "civil", "country": "CD"},
+    {"lat": 9.00, "lng": 40.00, "label": "Ethiopia", "intensity": 48, "type": "civil", "country": "ET"},
+    {"lat": 18.00, "lng": -72.00, "label": "Haiti", "intensity": 50, "type": "civil", "country": "HT"},
+    {"lat": 39.90, "lng": 32.80, "label": "Turkey-Syria", "intensity": 44, "type": "conflict", "country": "TR"},
+    {"lat": 13.50, "lng": 2.10, "label": "Niger", "intensity": 46, "type": "insurgency", "country": "NE"},
+    {"lat": 22.30, "lng": 114.20, "label": "South China Sea", "intensity": 58, "type": "tension", "country": "CN"},
+]
+
+STATIC_NEWS = [
+    {"title": "Federal Reserve signals cautious approach to rate cuts amid persistent inflation", "url": "#", "domain": "reuters.com", "tone": -3.2, "datetime": "2025-01-01T12:00:00Z", "impact_score": 72, "country": "US"},
+    {"title": "Global markets react to escalating geopolitical tensions in Middle East", "url": "#", "domain": "bloomberg.com", "tone": -5.1, "datetime": "2025-01-01T10:00:00Z", "impact_score": 85, "country": "IL"},
+    {"title": "IMF revises global growth forecast downward amid trade uncertainty", "url": "#", "domain": "ft.com", "tone": -2.8, "datetime": "2025-01-01T08:00:00Z", "impact_score": 60, "country": "US"},
+    {"title": "China manufacturing PMI contracts for third consecutive month", "url": "#", "domain": "wsj.com", "tone": -4.0, "datetime": "2025-01-01T06:00:00Z", "impact_score": 65, "country": "CN"},
+    {"title": "ECB holds rates steady, signals data-dependent approach for 2025", "url": "#", "domain": "ecb.europa.eu", "tone": -1.5, "datetime": "2025-01-01T04:00:00Z", "impact_score": 55, "country": "DE"},
+]
+
+
+def _gdelt_fetch(params: dict, timeout: int = 8):
+    try:
+        r = requests.get(GDELT_BASE, params=params, timeout=timeout)
+        r.raise_for_status()
+        return r.json()
+    except Exception:
+        return None
+
+
+def _compute_impact(title: str, tone: float) -> int:
+    score = min(abs(min(tone, 0)) * 4, 40)
+    high_kw = ["fed", "rate", "inflation", "crash", "crisis", "war", "default", "recession", "sanctions", "attack"]
+    med_kw  = ["market", "economy", "trade", "tariff", "conflict", "oil", "dollar", "bank", "debt"]
+    tl = title.lower()
+    for kw in high_kw:
+        if kw in tl:
+            score += 10
+    for kw in med_kw:
+        if kw in tl:
+            score += 5
+    return min(int(score), 100)
+
+
+@app.get("/api/intelligence/news")
+def get_intelligence_news():
+    data = _gdelt_fetch({
+        "query": "financial market economy war conflict rate inflation",
+        "mode": "artlist", "maxrecords": "25", "format": "json",
+        "timespan": "6h", "sort": "ToneAsc",
+    })
+    articles = []
+    if data and "articles" in data:
+        for a in data["articles"]:
+            try:
+                tone = float(a.get("tone", 0))
+            except Exception:
+                tone = 0.0
+            articles.append({
+                "title":        a.get("title", ""),
+                "url":          a.get("url", "#"),
+                "domain":       a.get("domain", ""),
+                "tone":         round(tone, 2),
+                "datetime":     a.get("seendate", ""),
+                "impact_score": _compute_impact(a.get("title", ""), tone),
+                "country":      a.get("sourcecountry", ""),
+            })
+        articles.sort(key=lambda x: x["impact_score"], reverse=True)
+    else:
+        articles = STATIC_NEWS
+    return articles
+
+
+@app.get("/api/intelligence/conflicts")
+def get_intelligence_conflicts():
+    data = _gdelt_fetch({
+        "query": "war conflict attack military strike battle insurgency",
+        "mode": "artlist", "maxrecords": "50", "format": "json", "timespan": "24h",
+    })
+    country_articles: dict = {}
+    if data and "articles" in data:
+        for a in data["articles"]:
+            cc = (a.get("sourcecountry") or "").upper()
+            if not cc or cc not in COUNTRY_COORDS:
+                continue
+            try:
+                tone = float(a.get("tone", 0))
+            except Exception:
+                tone = 0.0
+            if cc not in country_articles:
+                country_articles[cc] = []
+            country_articles[cc].append(tone)
+
+    gdelt_points: dict = {}
+    for cc, tones in country_articles.items():
+        avg_tone = sum(tones) / len(tones)
+        intensity = min(int(abs(avg_tone) * 8), 100)
+        if intensity < 20:
+            continue
+        lat, lng = COUNTRY_COORDS[cc]
+        gdelt_points[cc] = {"lat": lat, "lng": lng, "label": cc, "intensity": intensity, "type": "conflict", "country": cc}
+
+    merged = {c["country"]: dict(c) for c in STATIC_CONFLICTS}
+    for cc, pt in gdelt_points.items():
+        if cc in merged:
+            if pt["intensity"] > merged[cc]["intensity"]:
+                merged[cc]["intensity"] = pt["intensity"]
+        else:
+            merged[cc] = pt
+
+    conflicts = sorted(merged.values(), key=lambda x: x["intensity"], reverse=True)
+
+    dis_data = _gdelt_fetch({
+        "query": "earthquake flood hurricane wildfire volcano tsunami disaster",
+        "mode": "artlist", "maxrecords": "20", "format": "json", "timespan": "24h",
+    })
+    disasters = []
+    if dis_data and "articles" in dis_data:
+        seen: set = set()
+        for a in dis_data["articles"]:
+            cc = (a.get("sourcecountry") or "").upper()
+            if not cc or cc not in COUNTRY_COORDS or cc in seen:
+                continue
+            seen.add(cc)
+            try:
+                tone = float(a.get("tone", 0))
+            except Exception:
+                tone = 0.0
+            lat, lng = COUNTRY_COORDS[cc]
+            disasters.append({
+                "lat": lat, "lng": lng,
+                "label": a.get("title", "Natural event")[:50],
+                "intensity": min(int(abs(tone) * 6), 100),
+                "type": "disaster", "country": cc,
+            })
+
+    top10 = sorted(conflicts, key=lambda x: x["intensity"], reverse=True)[:10]
+    gpr = round(sum(c["intensity"] * (1.2 - i * 0.02) for i, c in enumerate(top10)) / max(len(top10), 1), 1)
+
+    return {"conflicts": conflicts, "disasters": disasters, "gpr_score": min(gpr, 100)}
+
+
+@app.get("/api/intelligence/correlations")
+def get_intelligence_correlations():
+    symbols = ["SPY", "TLT", "GLD", "HYG", "EEM", "USO"]
+    returns_map: dict = {}
+    for sym in symbols:
+        try:
+            hist = yf.Ticker(sym).history(period="1y", interval="1d")
+            if not hist.empty:
+                close = np.array(hist["Close"], dtype=float)
+                returns_map[sym] = np.diff(close) / close[:-1]
+        except Exception:
+            pass
+
+    valid = [s for s in symbols if s in returns_map]
+    min_len = min(len(returns_map[s]) for s in valid) if valid else 0
+
+    matrix = []
+    for s1 in symbols:
+        row = []
+        for s2 in symbols:
+            if s1 not in returns_map or s2 not in returns_map or min_len < 2:
+                row.append(None)
+            elif s1 == s2:
+                row.append(1.0)
+            else:
+                r1 = returns_map[s1][-min_len:]
+                r2 = returns_map[s2][-min_len:]
+                cov = np.cov(r1, r2)[0][1]
+                corr = cov / (r1.std() * r2.std()) if r1.std() > 0 and r2.std() > 0 else None
+                row.append(round(float(corr), 3) if corr is not None else None)
+        matrix.append(row)
+
+    return {
+        "symbols": symbols,
+        "matrix": matrix,
+        "last_updated": datetime.utcnow().isoformat() + "Z",
+    }
+
+
+@app.get("/api/intelligence/vix")
+def get_intelligence_vix():
+    try:
+        vix_hist = yf.Ticker("^VIX").history(period="3mo", interval="1d")
+        vix3m_info = yf.Ticker("^VIX3M").fast_info
+        tlt_hist = yf.Ticker("TLT").history(period="2mo", interval="1d")
+
+        spot = round(float(vix_hist["Close"].iloc[-1]), 2) if not vix_hist.empty else None
+        term_3m = None
+        try:
+            term_3m = round(float(vix3m_info.last_price), 2)
+        except Exception:
+            pass
+
+        history = []
+        if not vix_hist.empty:
+            for dt, row in vix_hist.tail(60).iterrows():
+                history.append({"date": str(dt)[:10], "value": round(float(row["Close"]), 2)})
+
+        move_proxy = None
+        if not tlt_hist.empty and len(tlt_hist) >= 21:
+            tlt_close = np.array(tlt_hist["Close"].tail(31), dtype=float)
+            tlt_ret = np.diff(tlt_close) / tlt_close[:-1]
+            move_proxy = round(float(tlt_ret[-20:].std() * np.sqrt(252) * 100), 1)
+
+        return {"spot": spot, "term_3m": term_3m, "history": history, "move_proxy": move_proxy}
+    except Exception as e:
+        return {"spot": 18.4, "term_3m": 19.1, "history": [], "move_proxy": 112.0, "error": str(e)}

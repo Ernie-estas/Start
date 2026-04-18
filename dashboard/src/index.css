@@ -138,6 +138,44 @@ body {
   box-shadow: 0 4px 16px rgba(0,0,0,0.4);
 }
 
+/* ── Neon-Noir / Glassmorphism (Intelligence Hub) ── */
+.glass-card {
+  background: rgba(10, 8, 25, 0.65);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(168, 85, 247, 0.15);
+  border-radius: 20px;
+  transition: border-color 200ms, box-shadow 200ms;
+}
+.glass-card-hover:hover {
+  border-color: rgba(168, 85, 247, 0.4);
+  box-shadow: 0 0 40px rgba(168, 85, 247, 0.12);
+}
+.glow-purple  { box-shadow: 0 0 30px rgba(168, 85, 247, 0.35); }
+.glow-cyan    { box-shadow: 0 0 30px rgba(34, 211, 238, 0.35); }
+.glow-magenta { box-shadow: 0 0 30px rgba(232, 121, 249, 0.35); }
+
+.nn-text-gradient {
+  background: linear-gradient(135deg, #a855f7, #22d3ee);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.impact-critical { background: rgba(239,68,68,0.15);  color: #ef4444; border: 1px solid rgba(239,68,68,0.35); }
+.impact-high     { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.35); }
+.impact-medium   { background: rgba(34,211,238,0.12); color: #22d3ee; border: 1px solid rgba(34,211,238,0.3); }
+.impact-low      { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+
+.pulse-ring {
+  animation: pulseRing 2s ease-out infinite;
+  border-radius: 50%;
+}
+@keyframes pulseRing {
+  0%   { transform: scale(1); opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
 @layer components {
   /* Card */
   .card {
