@@ -748,7 +748,6 @@ def get_etf_analytics(symbols: str, period: str = "2y"):
                     return round(float((close[-1] / close[-days] - 1) * 100), 2)
                 return None
 
-            # YTD
             ytd_ret = None
             try:
                 today = datetime.utcnow().date()
@@ -786,7 +785,6 @@ def get_etf_analytics(symbols: str, period: str = "2y"):
             below = daily_ret[daily_ret <= np.percentile(daily_ret, 5)]
             cvar95 = round(float(below.mean() * 100), 3) if len(below) > 0 else None
 
-            # Beta vs SPY
             beta = None
             if sym != "SPY":
                 if spy_returns is None:
@@ -807,7 +805,6 @@ def get_etf_analytics(symbols: str, period: str = "2y"):
             else:
                 beta = 1.0
 
-            # ETF-specific info
             div_yield = None
             div_rate = None
             pe = None
