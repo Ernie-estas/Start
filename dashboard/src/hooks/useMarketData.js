@@ -2,7 +2,7 @@
  * Shared hook for fetching live market data from the FastAPI/yfinance backend.
  * Falls back gracefully to null on network or API errors (e.g. sandbox environments).
  */
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 // In dev: Vite proxies /api → localhost:8000
 // In production: set VITE_API_URL to your Render backend URL
@@ -117,6 +117,33 @@ export function useAnalystRatings(symbol) {
   }, [symbol])
 
   return { data, loading }
+}
+
+export function useDebouncedInfo(symbol, delayMs = 500) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const timerRef = useRef(null)
+
+  useEffect(() => {
+    if (!symbol || symbol.length < 1) {
+      setData(null); setError(null); setLoading(false)
+      return
+    }
+    setLoading(true)
+    setData(null)
+    setError(null)
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      apiFetch(`/info/${symbol.toUpperCase()}`)
+        .then(d => { setData(d); setError(null) })
+        .catch(() => setError('Symbol not found'))
+        .finally(() => setLoading(false))
+    }, delayMs)
+    return () => clearTimeout(timerRef.current)
+  }, [symbol, delayMs])
+
+  return { data, loading, error }
 }
 
 export function useBatchQuotes(symbols) {
