@@ -9,10 +9,11 @@ import CurrencyDashboard from './components/CurrencyDashboard'
 import Ticker from './components/Ticker'
 import {
   LayoutDashboard, Briefcase, BarChart2, TrendingUp, LineChart,
-  Activity, Zap, DollarSign, ChevronRight, Globe2,
+  Activity, Zap, DollarSign, ChevronRight, Globe2, FlaskConical,
 } from 'lucide-react'
 
 const IntelligenceDashboard = lazy(() => import('./components/IntelligenceDashboard'))
+const ModellingLab          = lazy(() => import('./components/ModellingLab'))
 
 const TABS = [
   { id: 'intelligence', label: 'Intelligence', icon: Globe2 },
@@ -22,6 +23,7 @@ const TABS = [
   { id: 'technical',    label: 'Technical',    icon: LineChart },
   { id: 'macro',        label: 'Macro',        icon: TrendingUp },
   { id: 'montecarlo',   label: 'Monte Carlo',  icon: Activity },
+  { id: 'lab',          label: 'Modelling Lab',icon: FlaskConical },
   { id: 'fx',           label: 'FX Arbitrage', icon: DollarSign },
 ]
 
@@ -130,6 +132,15 @@ export default function App() {
         {activeTab === 'technical'  && <TechnicalChart />}
         {activeTab === 'macro'      && <MacroIndicators />}
         {activeTab === 'montecarlo' && <MonteCarlo />}
+        {activeTab === 'lab' && (
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-96">
+              <div className="w-8 h-8 rounded-full border-2 border-accent-blue border-t-transparent animate-spin" />
+            </div>
+          }>
+            <ModellingLab />
+          </Suspense>
+        )}
         {activeTab === 'fx'         && <CurrencyDashboard />}
       </main>
     </div>
